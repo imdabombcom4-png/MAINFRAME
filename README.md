@@ -23,7 +23,7 @@ An efficient bot that scans NASDAQ and S&P 500 stocks for investor relations new
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone <https://github.com/imdabombcom4-png/MAINFRAME>
 cd MAINFRAME
 ```
 
