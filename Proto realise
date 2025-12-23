@@ -1,0 +1,487 @@
+import React, { useState } from 'react';
+import { MessageCircle, TrendingUp, Users, RotateCcw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+
+const NegotiationSimulator = () => {
+  const [activeScenario, setActiveScenario] = useState(null);
+  const [userInput, setUserInput] = useState('');
+  const [conversation, setConversation] = useState([]);
+  const [feedback, setFeedback] = useState(null);
+  const [scenarioComplete, setScenarioComplete] = useState(false);
+
+  const scenarios = {
+    dealmaking: [
+      {
+        id: 'acquisition',
+        title: 'Startup Acquisition Negotiation',
+        description: 'You\'re selling your SaaS startup. The buyer initially offered $8M, but you know they have $15M budgeted.',
+        context: 'They need your tech to complete a product launch in 6 months. You have another interested party at $10M.',
+        counterparty: 'Sarah Chen, VP of Corporate Development',
+        difficulty: 'Advanced',
+        initialMessage: "We're prepared to move quickly on this. Our $8M offer represents a fair 4x revenue multiple. We'd like to close within 30 days."
+      },
+      {
+        id: 'partnership',
+        title: 'Strategic Partnership Negotiation',
+        description: 'Negotiating a co-marketing partnership where you need their brand credibility but they want exclusive access to your customer base.',
+        context: 'They're a Fortune 500 company. Your startup has 50K engaged users in their target demographic.',
+        counterparty: 'Marcus Rodriguez, Head of Partnerships',
+        difficulty: 'Advanced',
+        initialMessage: "We love what you're building. We'd want exclusive access to your user base for our product launches. In return, we'll feature you in our quarterly marketing campaigns."
+      },
+      {
+        id: 'vendor',
+        title: 'Enterprise Vendor Negotiation',
+        description: 'You\'re buying enterprise software. List price is $500K/year but you know they offer 40% discounts to close deals end-of-quarter.',
+        context: 'It\'s September 28th (Q3 end). You have budget approved but could wait. They\'re 15% below quota this quarter.',
+        counterparty: 'Jennifer Park, Enterprise Account Executive',
+        difficulty: 'Advanced',
+        initialMessage: "Great news! I got approval to offer you our premium tier at $500K annually with implementation included. If we can get this signed by Friday, I can throw in our training package worth $50K."
+      }
+    ],
+    networking: [
+      {
+        id: 'investor',
+        title: 'Investor Introduction Request',
+        description: 'You need an intro to a specific VC partner. You\'re talking to someone who knows them well but you\'ve only met twice.',
+        context: 'The connector is a respected founder. The VC partner is highly selective about intros they take.',
+        counterparty: 'David Kim, Serial Entrepreneur',
+        difficulty: 'Advanced',
+        initialMessage: "Hey! How's the company going? I saw you raised your seed round - congrats on that."
+      },
+      {
+        id: 'talent',
+        title: 'Recruiting Through Back Channels',
+        description: 'You want to recruit a senior engineer from a competitor. You\'re at a conference and just met their former colleague.',
+        context: 'The engineer isn\'t actively looking. Your company can\'t match their current comp but has better equity upside.',
+        counterparty: 'Rachel Lee, Engineering Leader',
+        difficulty: 'Advanced',
+        initialMessage: "It's funny running into you here! I used to work with someone you'd probably love to meet - they're doing some really interesting infrastructure work."
+      },
+      {
+        id: 'board',
+        title: 'Board Member Recruitment',
+        description: 'You want a prominent executive to join your advisory board. They get 5+ requests per week.',
+        context: 'They led digital transformation at a Fortune 100 company. Your startup is in their area of expertise but pre-revenue.',
+        counterparty: 'Michael Torres, Former CTO',
+        difficulty: 'Advanced',
+        initialMessage: "Thanks for taking the time to chat. I'm curious what you're working on these days."
+      }
+    ]
+  };
+
+  const analyzeResponse = (input, scenario) => {
+    const lowerInput = input.toLowerCase();
+    const analysis = {
+      strengths: [],
+      weaknesses: [],
+      rating: 'neutral',
+      nextMove: ''
+    };
+
+    // Advanced techniques detection
+    if (lowerInput.includes('anchor') || lowerInput.match(/\$[\d,]+/)) {
+      analysis.strengths.push('Good anchoring with specific numbers');
+    }
+    
+    if (lowerInput.includes('timeline') || lowerInput.includes('when') || lowerInput.includes('deadline')) {
+      analysis.strengths.push('Exploring time pressure dynamics');
+    }
+
+    if (lowerInput.includes('alternative') || lowerInput.includes('batna') || lowerInput.includes('other option')) {
+      analysis.strengths.push('Signaling alternatives (BATNA)');
+    }
+
+    if (lowerInput.includes('why') || lowerInput.includes('help me understand') || lowerInput.includes('curious')) {
+      analysis.strengths.push('Using tactical empathy and questions');
+    }
+
+    if (lowerInput.includes('what if') || lowerInput.includes('imagine') || lowerInput.includes('suppose')) {
+      analysis.strengths.push('Testing scenarios without commitment');
+    }
+
+    // Red flags
+    if (lowerInput.includes('yes') && lowerInput.length < 20) {
+      analysis.weaknesses.push('Too quick to agree - extract more value first');
+    }
+
+    if (lowerInput.includes('accept') || lowerInput.includes('deal') && !lowerInput.includes('if')) {
+      analysis.weaknesses.push('Closing too early without maximizing position');
+    }
+
+    if (!lowerInput.includes('?') && lowerInput.length > 50) {
+      analysis.weaknesses.push('Talking too much - ask more questions');
+    }
+
+    if (lowerInput.includes('fair') || lowerInput.includes('reasonable')) {
+      analysis.weaknesses.push('Avoid subjective terms like "fair" - use objective criteria');
+    }
+
+    if (lowerInput.includes('need') && !lowerInput.includes('you')) {
+      analysis.weaknesses.push('Revealing your needs weakens your position');
+    }
+
+    // Rating
+    if (analysis.strengths.length >= 2 && analysis.weaknesses.length === 0) {
+      analysis.rating = 'excellent';
+      analysis.nextMove = 'Strong move. They\'ll likely make a concession or reveal more information.';
+    } else if (analysis.strengths.length > analysis.weaknesses.length) {
+      analysis.rating = 'good';
+      analysis.nextMove = 'Solid approach. Watch for their reaction and be ready to pivot.';
+    } else if (analysis.weaknesses.length > analysis.strengths.length) {
+      analysis.rating = 'weak';
+      analysis.nextMove = 'This might cost you leverage. Consider reframing your position.';
+    } else {
+      analysis.rating = 'neutral';
+      analysis.nextMove = 'Safe move, but you could be more strategic. Look for ways to gain information or shift the frame.';
+    }
+
+    return analysis;
+  };
+
+  const generateResponse = (input, scenario, turnNumber) => {
+    const lowerInput = input.toLowerCase();
+    
+    // Scenario-specific responses
+    if (scenario.id === 'acquisition') {
+      if (turnNumber === 1) {
+        if (lowerInput.includes('alternative') || lowerInput.includes('other')) {
+          return "I see. Well, we'd certainly like to be the best option. What would it take to get there?";
+        }
+        if (lowerInput.match(/\$1[0-5]/)) {
+          return "That's quite a jump from our initial offer. Can you walk me through how you arrived at that valuation?";
+        }
+        if (lowerInput.includes('timeline') || lowerInput.includes('rush')) {
+          return "The 30 days is important to us - we have board approval that expires then. But I'm open to discussing structure.";
+        }
+        return "I appreciate you sharing that. Help me understand - what's driving your valuation expectations?";
+      }
+      if (turnNumber === 2) {
+        if (lowerInput.includes('equity') || lowerInput.includes('earnout')) {
+          return "Interesting. So you're thinking some combination of cash and performance-based consideration? What split did you have in mind?";
+        }
+        return "Let me take that back to the team. If we could get comfortable with a higher number, what would make this a definitive yes for you?";
+      }
+    }
+
+    if (scenario.id === 'investor') {
+      if (turnNumber === 1) {
+        if (lowerInput.includes('intro') && lowerInput.length < 100) {
+          return "Oh, which partner are you looking to connect with? I know a few people over there.";
+        }
+        if (lowerInput.includes('raising') || lowerInput.includes('fundraising')) {
+          return "Got it. You know, intros are tricky - I want to make sure it's the right fit on both sides. Tell me more about what you're building.";
+        }
+        if (lowerInput.includes('advice') || lowerInput.includes('learn')) {
+          return "Happy to help. What specific aspect of fundraising are you thinking about?";
+        }
+        return "Thanks! We're growing steadily. What's new on your end?";
+      }
+      if (turnNumber === 2) {
+        if (lowerInput.includes('specific') && lowerInput.includes('because')) {
+          return "That makes sense - they do focus on that space. Let me think about the best way to position this. Have you talked to any other firms yet?";
+        }
+        return "Interesting. Let me see if I can help facilitate a connection. No promises, but I'll reach out to them.";
+      }
+    }
+
+    if (scenario.id === 'partnership') {
+      if (turnNumber === 1) {
+        if (lowerInput.includes('exclusive') && lowerInput.includes('concern')) {
+          return "I understand the hesitation. What if we structured it as exclusive for specific product categories rather than across the board?";
+        }
+        if (lowerInput.includes('quarterly') && lowerInput.includes('more')) {
+          return "We typically do quarterly cycles for planning. What frequency were you envisioning?";
+        }
+        if (lowerInput.includes('metrics') || lowerInput.includes('measure')) {
+          return "Good question. We'd measure it through conversion attribution and brand lift studies. What matters most to you?";
+        }
+        return "Tell me more about what's important to you in this partnership.";
+      }
+    }
+
+    // Generic responses
+    const genericResponses = [
+      "That's an interesting perspective. What's most important to you in making this work?",
+      "I hear you. Let me think about how we might bridge this gap.",
+      "Help me understand your thinking on that.",
+      "What would success look like for you here?",
+      "I appreciate your position. Let's see if we can find a creative solution."
+    ];
+    
+    return genericResponses[turnNumber % genericResponses.length];
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!userInput.trim()) return;
+
+    const analysis = analyzeResponse(userInput, activeScenario);
+    const counterpartyResponse = generateResponse(userInput, activeScenario, conversation.length / 2);
+
+    setConversation([
+      ...conversation,
+      { type: 'user', text: userInput, analysis },
+      { type: 'counterparty', text: counterpartyResponse }
+    ]);
+
+    setFeedback(analysis);
+    setUserInput('');
+
+    if (conversation.length >= 6) {
+      setScenarioComplete(true);
+    }
+  };
+
+  const resetScenario = () => {
+    setConversation([]);
+    setFeedback(null);
+    setScenarioComplete(false);
+  };
+
+  const selectScenario = (scenario) => {
+    setActiveScenario(scenario);
+    setConversation([{ type: 'counterparty', text: scenario.initialMessage }]);
+    setFeedback(null);
+    setScenarioComplete(false);
+  };
+
+  if (!activeScenario) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-white mb-4">Advanced Negotiation Simulator</h1>
+            <p className="text-slate-300 text-lg">Practice complex scenarios with real-time tactical feedback</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <TrendingUp className="text-blue-400" size={28} />
+                <h2 className="text-2xl font-semibold text-white">Business Deals</h2>
+              </div>
+              <div className="space-y-4">
+                {scenarios.dealmaking.map((scenario) => (
+                  <div
+                    key={scenario.id}
+                    onClick={() => selectScenario(scenario)}
+                    className="bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg p-6 cursor-pointer transition-all hover:border-blue-500"
+                  >
+                    <h3 className="text-xl font-semibold text-white mb-2">{scenario.title}</h3>
+                    <p className="text-slate-300 mb-3">{scenario.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">{scenario.counterparty}</span>
+                      <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+                        {scenario.difficulty}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <Users className="text-purple-400" size={28} />
+                <h2 className="text-2xl font-semibold text-white">Networking</h2>
+              </div>
+              <div className="space-y-4">
+                {scenarios.networking.map((scenario) => (
+                  <div
+                    key={scenario.id}
+                    onClick={() => selectScenario(scenario)}
+                    className="bg-slate-800 hover:bg-slate-750 border border-slate-700 rounded-lg p-6 cursor-pointer transition-all hover:border-purple-500"
+                  >
+                    <h3 className="text-xl font-semibold text-white mb-2">{scenario.title}</h3>
+                    <p className="text-slate-300 mb-3">{scenario.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">{scenario.counterparty}</span>
+                      <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+                        {scenario.difficulty}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveScenario(null)}
+              className="text-slate-400 hover:text-white mb-4 flex items-center gap-2"
+            >
+              ← Back to scenarios
+            </button>
+            <h2 className="text-3xl font-bold text-white">{activeScenario.title}</h2>
+            <p className="text-slate-300 mt-2">{activeScenario.context}</p>
+          </div>
+          <button
+            onClick={resetScenario}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            <RotateCcw size={18} />
+            Reset
+          </button>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 min-h-[500px] max-h-[600px] overflow-y-auto mb-4">
+              {conversation.map((msg, idx) => (
+                <div key={idx} className="mb-6">
+                  <div className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex-1 ${msg.type === 'user' ? 'text-right' : ''}`}>
+                      <div className={`inline-block max-w-[80%] p-4 rounded-lg ${
+                        msg.type === 'user' 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-slate-700 text-slate-100'
+                      }`}>
+                        <p className="text-sm font-medium mb-1">
+                          {msg.type === 'user' ? 'You' : activeScenario.counterparty}
+                        </p>
+                        <p>{msg.text}</p>
+                      </div>
+                      
+                      {msg.analysis && (
+                        <div className="mt-2 inline-block max-w-[80%]">
+                          <div className={`text-xs px-3 py-2 rounded ${
+                            msg.analysis.rating === 'excellent' ? 'bg-green-500/20 text-green-400' :
+                            msg.analysis.rating === 'good' ? 'bg-blue-500/20 text-blue-400' :
+                            msg.analysis.rating === 'weak' ? 'bg-red-500/20 text-red-400' :
+                            'bg-slate-600/20 text-slate-400'
+                          }`}>
+                            {msg.analysis.strengths.length > 0 && (
+                              <div className="mb-1">
+                                <strong>✓</strong> {msg.analysis.strengths.join(', ')}
+                              </div>
+                            )}
+                            {msg.analysis.weaknesses.length > 0 && (
+                              <div>
+                                <strong>⚠</strong> {msg.analysis.weaknesses.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!scenarioComplete && (
+              <form onSubmit={handleSubmit} className="flex gap-3">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  placeholder="Type your response..."
+                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Send
+                </button>
+              </form>
+            )}
+
+            {scenarioComplete && (
+              <div className="bg-green-500/20 border border-green-500 rounded-lg p-6 text-center">
+                <CheckCircle className="text-green-400 mx-auto mb-3" size={48} />
+                <h3 className="text-xl font-semibold text-white mb-2">Scenario Complete!</h3>
+                <p className="text-slate-300 mb-4">You've completed this negotiation practice round.</p>
+                <button
+                  onClick={resetScenario}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-slate-800 rounded-lg border border-slate-700 p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <MessageCircle size={20} />
+              Live Feedback
+            </h3>
+            
+            {feedback ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${
+                  feedback.rating === 'excellent' ? 'bg-green-500/20 border border-green-500' :
+                  feedback.rating === 'good' ? 'bg-blue-500/20 border border-blue-500' :
+                  feedback.rating === 'weak' ? 'bg-red-500/20 border border-red-500' :
+                  'bg-slate-700 border border-slate-600'
+                }`}>
+                  <p className="text-white font-medium mb-2">
+                    {feedback.rating === 'excellent' ? '🎯 Excellent Move' :
+                     feedback.rating === 'good' ? '👍 Good Approach' :
+                     feedback.rating === 'weak' ? '⚠️ Weak Position' :
+                     '↔️ Neutral Move'}
+                  </p>
+                  <p className="text-sm text-slate-300">{feedback.nextMove}</p>
+                </div>
+
+                {feedback.strengths.length > 0 && (
+                  <div className="bg-green-500/10 rounded-lg p-4">
+                    <p className="text-green-400 font-medium mb-2 flex items-center gap-2">
+                      <CheckCircle size={16} />
+                      Strengths
+                    </p>
+                    <ul className="space-y-1">
+                      {feedback.strengths.map((strength, idx) => (
+                        <li key={idx} className="text-sm text-slate-300">• {strength}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {feedback.weaknesses.length > 0 && (
+                  <div className="bg-red-500/10 rounded-lg p-4">
+                    <p className="text-red-400 font-medium mb-2 flex items-center gap-2">
+                      <AlertCircle size={16} />
+                      Watch Out
+                    </p>
+                    <ul className="space-y-1">
+                      {feedback.weaknesses.map((weakness, idx) => (
+                        <li key={idx} className="text-sm text-slate-300">• {weakness}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-sm">Your tactical analysis will appear here after each response.</p>
+            )}
+
+            <div className="mt-6 pt-6 border-t border-slate-700">
+              <h4 className="text-sm font-medium text-slate-400 mb-3">Advanced Techniques</h4>
+              <ul className="space-y-2 text-xs text-slate-400">
+                <li>• Use tactical empathy questions</li>
+                <li>• Anchor with specific numbers</li>
+                <li>• Signal BATNA subtly</li>
+                <li>• Test scenarios with "what if"</li>
+                <li>• Explore time pressure</li>
+                <li>• Listen more than you talk</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default NegotiationSimulator;
