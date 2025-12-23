@@ -27,7 +27,7 @@ class TickerFetcher:
 
     def __init__(self):
         """Initialize the TickerFetcher."""
-        pass
+        self._tickers_cache = []
 
     async def fetch_sp500_tickers(self) -> List[str]:
         """
@@ -138,8 +138,21 @@ class TickerFetcher:
         # Remove duplicates while preserving order
         unique_tickers = list(dict.fromkeys(all_tickers))
 
+        # Cache the tickers for later retrieval
+        self._tickers_cache = unique_tickers
+
         print(f"\n✓ Total unique tickers: {len(unique_tickers)}")
         return unique_tickers
+
+    def get_tickers_list(self) -> List[str]:
+        """
+        Get the cached list of ticker symbols.
+
+        Returns:
+            List of ticker symbols that were previously fetched.
+            Returns empty list if fetch_all_tickers() hasn't been called yet.
+        """
+        return self._tickers_cache
 
 
 async def main():
@@ -171,7 +184,13 @@ async def main():
 
     # Fetch all
     print("Fetching all unique tickers...")
-    all_tickers = await fetcher.fetch_all_tickers()
+    await fetcher.fetch_all_tickers()
+
+    # Test get_tickers_list (synchronous retrieval from cache)
+    print("Retrieving cached tickers with get_tickers_list()...")
+    cached_tickers = fetcher.get_tickers_list()
+    print(f"Cached tickers count: {len(cached_tickers)}")
+    print(f"Sample cached tickers: {cached_tickers[:10]}")
 
     print("=" * 60)
 
