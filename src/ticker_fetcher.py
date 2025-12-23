@@ -6,6 +6,7 @@ It includes proper User-Agent headers and parser configuration
 to avoid common scraping issues.
 """
 
+import asyncio
 import pandas as pd
 import requests
 from typing import List, Optional
@@ -28,7 +29,7 @@ class TickerFetcher:
         """Initialize the TickerFetcher."""
         pass
 
-    def fetch_sp500_tickers(self) -> List[str]:
+    async def fetch_sp500_tickers(self) -> List[str]:
         """
         Fetch S&P 500 ticker symbols from Wikipedia.
 
@@ -36,8 +37,9 @@ class TickerFetcher:
             List of ticker symbols (e.g., ['AAPL', 'MSFT', ...])
         """
         try:
-            # Read HTML tables with proper parser and headers
-            tables = pd.read_html(
+            # Read HTML tables with proper parser and headers (run in thread pool)
+            tables = await asyncio.to_thread(
+                pd.read_html,
                 self.SP500_URL,
                 attrs={'id': 'constituents'},
                 flavor='lxml',
@@ -57,7 +59,7 @@ class TickerFetcher:
             print(f"✗ Error fetching S&P 500 tickers: {e}")
             return []
 
-    def fetch_nasdaq100_tickers(self) -> List[str]:
+    async def fetch_nasdaq100_tickers(self) -> List[str]:
         """
         Fetch NASDAQ-100 ticker symbols from Wikipedia.
 
@@ -65,8 +67,9 @@ class TickerFetcher:
             List of ticker symbols
         """
         try:
-            # Read HTML tables with proper parser and headers
-            tables = pd.read_html(
+            # Read HTML tables with proper parser and headers (run in thread pool)
+            tables = await asyncio.to_thread(
+                pd.read_html,
                 self.NASDAQ100_URL,
                 flavor='lxml',
                 storage_options=self.HEADERS
@@ -87,7 +90,7 @@ class TickerFetcher:
             print(f"✗ Error fetching NASDAQ-100 tickers: {e}")
             return []
 
-    def fetch_dow30_tickers(self) -> List[str]:
+    async def fetch_dow30_tickers(self) -> List[str]:
         """
         Fetch Dow Jones Industrial Average (Dow 30) ticker symbols from Wikipedia.
 
@@ -95,8 +98,9 @@ class TickerFetcher:
             List of ticker symbols
         """
         try:
-            # Read HTML tables with proper parser and headers
-            tables = pd.read_html(
+            # Read HTML tables with proper parser and headers (run in thread pool)
+            tables = await asyncio.to_thread(
+                pd.read_html,
                 self.DOW30_URL,
                 flavor='lxml',
                 storage_options=self.HEADERS
@@ -117,7 +121,7 @@ class TickerFetcher:
             print(f"✗ Error fetching Dow 30 tickers: {e}")
             return []
 
-    def fetch_all_tickers(self) -> List[str]:
+    async def fetch_all_tickers(self) -> List[str]:
         """
         Fetch all available ticker symbols from supported indices.
 
@@ -126,10 +130,10 @@ class TickerFetcher:
         """
         all_tickers = []
 
-        # Fetch from all sources
-        all_tickers.extend(self.fetch_sp500_tickers())
-        all_tickers.extend(self.fetch_nasdaq100_tickers())
-        all_tickers.extend(self.fetch_dow30_tickers())
+        # Fetch from all sources (await each async call)
+        all_tickers.extend(await self.fetch_sp500_tickers())
+        all_tickers.extend(await self.fetch_nasdaq100_tickers())
+        all_tickers.extend(await self.fetch_dow30_tickers())
 
         # Remove duplicates while preserving order
         unique_tickers = list(dict.fromkeys(all_tickers))
@@ -138,7 +142,7 @@ class TickerFetcher:
         return unique_tickers
 
 
-def main():
+async def main():
     """Test the ticker fetcher."""
     fetcher = TickerFetcher()
 
@@ -149,28 +153,28 @@ def main():
 
     # Test S&P 500
     print("Fetching S&P 500 tickers...")
-    sp500 = fetcher.fetch_sp500_tickers()
+    sp500 = await fetcher.fetch_sp500_tickers()
     print(f"Sample tickers: {sp500[:5]}")
     print()
 
     # Test NASDAQ-100
     print("Fetching NASDAQ-100 tickers...")
-    nasdaq100 = fetcher.fetch_nasdaq100_tickers()
+    nasdaq100 = await fetcher.fetch_nasdaq100_tickers()
     print(f"Sample tickers: {nasdaq100[:5]}")
     print()
 
     # Test Dow 30
     print("Fetching Dow 30 tickers...")
-    dow30 = fetcher.fetch_dow30_tickers()
+    dow30 = await fetcher.fetch_dow30_tickers()
     print(f"Sample tickers: {dow30[:5]}")
     print()
 
     # Fetch all
     print("Fetching all unique tickers...")
-    all_tickers = fetcher.fetch_all_tickers()
+    all_tickers = await fetcher.fetch_all_tickers()
 
     print("=" * 60)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
